@@ -1,0 +1,5 @@
+{
+  "name": "ALPHASIGNAL",
+  "description": "High-frequency binary trading signal engine using Gemini 3.0 Pro with advanced market structure analysis.",
+  "requestFramePermissions": []
+}
