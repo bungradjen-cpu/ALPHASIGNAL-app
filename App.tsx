@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INDEXES, generateSessionContext } from './services/marketSimulator';
 import { generateBatchSignals } from './services/geminiService';
 import { SessionSignal, SignalType } from './types';
@@ -16,7 +16,17 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Clock State
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
   const activeIndex = INDEXES.find(i => i.id === selectedIndexId) || INDEXES[0];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -61,27 +71,53 @@ const App: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Date/Time Formatters
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-alpha-blue selection:text-black flex flex-col">
       
       {/* Navbar */}
-      <header className="h-16 border-b border-[#1F1F1F] flex items-center justify-between px-6 bg-[#050505]/90 backdrop-blur-md sticky top-0 z-50">
+      <header className="h-20 border-b border-[#1F1F1F] flex items-center justify-between px-6 bg-[#050505]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-alpha-blue rounded flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-            <Zap className="text-black w-5 h-5 fill-current" />
+          <div className="w-10 h-10 bg-alpha-blue rounded flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+            <Zap className="text-black w-6 h-6 fill-current" />
           </div>
-          <h1 className="text-xl font-bold tracking-widest text-white">ALPHA<span className="text-alpha-blue">SIGNAL</span></h1>
+          <div>
+            <h1 className="text-xl font-bold tracking-widest text-white leading-none">ALPHA<span className="text-alpha-blue">SIGNAL</span></h1>
+            <p className="text-[10px] text-gray-500 font-mono tracking-wider mt-1">V2.0 PRO ENGINE</p>
+          </div>
+        </div>
+
+        {/* Real Time Clock */}
+        <div className="text-right flex flex-col items-end border-l border-[#1F1F1F] pl-6">
+          <div className="flex items-center space-x-2 text-alpha-blue mb-1">
+             <div className="w-2 h-2 rounded-full bg-alpha-red animate-pulse"></div>
+             <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-gray-500">System Time</span>
+          </div>
+          <div className="text-2xl font-mono font-bold text-white tracking-widest leading-none">
+            {formatTime(currentTime)}
+          </div>
+          <div className="text-xs font-mono text-gray-500 mt-1 uppercase tracking-wide">
+            {formatDate(currentTime)}
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-8">
+      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full space-y-8">
         
         {/* Control Panel */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-6">
           
           {/* Settings Card */}
-          <div className="md:col-span-5 bg-[#0A0A0A] border border-[#1F1F1F] rounded-2xl p-6 shadow-xl relative overflow-hidden group">
+          <div className="md:col-span-4 bg-[#0A0A0A] border border-[#1F1F1F] rounded-2xl p-6 shadow-xl relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-alpha-blue to-purple-600"></div>
             
             <h2 className="text-lg font-bold mb-6 flex items-center text-white">
@@ -167,7 +203,7 @@ const App: React.FC = () => {
           </div>
 
           {/* Results Area */}
-          <div className="md:col-span-7">
+          <div className="md:col-span-8">
              {generatedSignals.length > 0 ? (
                <SignalTable 
                   indexName={activeIndex.name} 
@@ -198,7 +234,7 @@ const App: React.FC = () => {
 
       </main>
 
-      <footer className="py-6 border-t border-[#1F1F1F] text-center">
+      <footer className="py-6 border-t border-[#1F1F1F] text-center bg-[#050505]">
         <p className="text-[10px] text-gray-600 font-mono tracking-widest">
            ALPHASIGNAL v2.0 • POWERED BY KINGKING AI
         </p>
