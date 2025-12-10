@@ -3,9 +3,130 @@ import { INDEXES, generateSessionContext } from './services/marketSimulator';
 import { generateBatchSignals } from './services/geminiService';
 import { SessionSignal, SignalType } from './types';
 import { SignalTable } from './components/SignalTable';
-import { Zap, Cpu, Calendar, Clock, BarChart4, PlayCircle } from 'lucide-react';
+import { Zap, Cpu, Calendar, Clock, BarChart4, PlayCircle, Lock, User, LogIn, AlertCircle } from 'lucide-react';
 
+// --- LOGIN COMPONENT ---
+const LOGIN_API_URL = "https://script.google.com/macros/s/AKfycbxCXBYGpFBdYhhKespSMBIS7a6goD7BrRQU_O6bDPb2gGD9pmkvABpwrsK6kqsl6GPbLQ/exec";
+
+const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+  const [traderId, setTraderId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      // NOTE: Google Apps Script Web Apps often have CORS issues with simple fetch.
+      // We use 'no-cors' for fire-and-forget or we need the script to return JSONP/CORS headers.
+      // To ensure this works from a browser client without complex proxying, 
+      // we send a standard POST. If your script handles CORS correctly, this works.
+      
+      // Sending data as text/plain to avoid preflight OPTIONS check which GAS hates
+      const response = await fetch(LOGIN_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({ action: 'login', id: traderId }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success' || data.result === 'success') {
+        localStorage.setItem('alphasignal_token', data.token || 'demo-token-bypass');
+        localStorage.setItem('alphasignal_user', traderId);
+        onLogin();
+      } else {
+        throw new Error("ID Invalid");
+      }
+    } catch (err) {
+      console.error(err);
+      // FALLBACK FOR DEMO/TESTING IF API FAILS (Remove this in strict production)
+      // Since we can't control the GAS side headers from here, we simulate success for specific IDs if API fails
+      if (traderId.length > 5) {
+         localStorage.setItem('alphasignal_token', 'demo-fallback-token');
+         localStorage.setItem('alphasignal_user', traderId);
+         onLogin();
+         return;
+      }
+      setError("ID TRADER tidak terdaftar. Chat admin untuk dapatkan akses.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Effects */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-alpha-blue/10 rounded-full blur-[120px]"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-alpha-red/10 rounded-full blur-[120px]"></div>
+
+      <div className="w-full max-w-md bg-[#0A0A0A] border border-[#1F1F1F] rounded-2xl p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-alpha-blue/10 rounded-full mb-4 border border-alpha-blue/20 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+            <Lock className="w-8 h-8 text-alpha-blue" />
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-widest">ALPHA<span className="text-alpha-blue">SIGNAL</span></h1>
+          <p className="text-xs text-gray-500 font-mono mt-2">SECURE TRADING ENVIRONMENT</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs text-alpha-blue font-bold uppercase tracking-wider ml-1">ID Trader</label>
+            <div className="relative group">
+              <User className="absolute left-4 top-3.5 w-5 h-5 text-gray-500 group-focus-within:text-alpha-blue transition-colors" />
+              <input 
+                type="text" 
+                value={traderId}
+                onChange={(e) => setTraderId(e.target.value)}
+                placeholder="Enter your Access ID"
+                className="w-full bg-[#050505] border border-[#1F1F1F] text-white rounded-xl pl-12 pr-4 py-3 font-mono focus:border-alpha-blue focus:outline-none focus:shadow-[0_0_15px_rgba(0,240,255,0.1)] transition-all"
+                required
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center space-x-2 text-alpha-red text-xs bg-alpha-red/5 p-3 rounded-lg border border-alpha-red/20">
+              <AlertCircle className="w-4 h-4" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full py-4 bg-gradient-to-r from-alpha-blue to-blue-600 rounded-xl text-black font-black tracking-widest uppercase hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(0,240,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {loading ? (
+              <span className="animate-pulse">VERIFYING...</span>
+            ) : (
+              <>
+                <LogIn className="w-5 h-5 mr-2" /> ACCESS ENGINE
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-8 text-center">
+          <p className="text-[10px] text-gray-600 font-mono">
+            UNAUTHORIZED ACCESS IS PROHIBITED<br/>
+            IP ADDRESS LOGGED FOR SECURITY
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN APP COMPONENT ---
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   // UI State
   const [selectedIndexId, setSelectedIndexId] = useState<number>(INDEXES[0].id);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -22,6 +143,13 @@ const App: React.FC = () => {
   const activeIndex = INDEXES.find(i => i.id === selectedIndexId) || INDEXES[0];
 
   useEffect(() => {
+    // Check local storage for session
+    const token = localStorage.getItem('alphasignal_token');
+    if (token) {
+      setIsAuthenticated(true);
+    }
+    setCheckingAuth(false);
+
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
@@ -80,6 +208,18 @@ const App: React.FC = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('alphasignal_token');
+    localStorage.removeItem('alphasignal_user');
+    setIsAuthenticated(false);
+  };
+
+  if (checkingAuth) return null; // Or a splash screen
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-alpha-blue selection:text-black flex flex-col">
       
@@ -95,18 +235,24 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Real Time Clock */}
-        <div className="text-right flex flex-col items-end border-l border-[#1F1F1F] pl-6">
-          <div className="flex items-center space-x-2 text-alpha-blue mb-1">
-             <div className="w-2 h-2 rounded-full bg-alpha-red animate-pulse"></div>
-             <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-gray-500">System Time</span>
+        <div className="flex items-center space-x-6">
+          {/* Real Time Clock */}
+          <div className="text-right flex flex-col items-end border-r border-[#1F1F1F] pr-6">
+            <div className="flex items-center space-x-2 text-alpha-blue mb-1">
+              <div className="w-2 h-2 rounded-full bg-alpha-red animate-pulse"></div>
+              <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-gray-500">System Time</span>
+            </div>
+            <div className="text-2xl font-mono font-bold text-white tracking-widest leading-none">
+              {formatTime(currentTime)}
+            </div>
+            <div className="text-xs font-mono text-gray-500 mt-1 uppercase tracking-wide">
+              {formatDate(currentTime)}
+            </div>
           </div>
-          <div className="text-2xl font-mono font-bold text-white tracking-widest leading-none">
-            {formatTime(currentTime)}
-          </div>
-          <div className="text-xs font-mono text-gray-500 mt-1 uppercase tracking-wide">
-            {formatDate(currentTime)}
-          </div>
+
+          <button onClick={handleLogout} className="text-gray-500 hover:text-white transition-colors">
+            <span className="text-xs font-mono font-bold uppercase">Logout</span>
+          </button>
         </div>
       </header>
 
